@@ -3,3 +3,5 @@ def despedida(nombre):
 
 print(despedida("DevOps"))
 
+print(despedida("DevOps"))
+print(despedida("DevOps"))
