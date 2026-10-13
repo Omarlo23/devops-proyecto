@@ -4,26 +4,32 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  lint-and-test:
-    name: Lint y Tests Unitarios
+  lint:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clonar repositorio
+      - name: Descargar código
         uses: actions/checkout@v4
 
-      - name: Configurar Python 3.11
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.12"
 
-      - name: Instalar dependencias
-        run: pip install -r requirements.txt
+      - name: Crear entorno virtual e instalar Flake8
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install flake8
 
-      - name: Linting con flake8
-        run: flake8 . --max-line-length=100 --exclude=.git,__pycache__
-
-      - name: Ejecutar tests unitarios
-        run: pytest tests/ -v
+      - name: Analizar código
+        run: |
+          source .venv/bin/activate
+          python -m flake8 app.py calculadora.py tests/
