@@ -1,5 +1,3 @@
-CI Pipeline
-
 on:
   push:
     branches: [main]
