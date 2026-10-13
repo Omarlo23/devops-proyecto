@@ -1,4 +1,4 @@
-name: CI - pruevas
+name: CI - falke_comprovations
 on:
   push:
     branches: [main]
