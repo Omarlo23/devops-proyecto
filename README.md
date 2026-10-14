@@ -1,0 +1,1 @@
+[![CI - comprovations](https://github.com/Omarlo23/devops-proyecto/actions/workflows/ci.yml/badge.svg)](https://github.com/Omarlo23/devops-proyecto/actions/workflows/ci.yml)
