@@ -1,4 +1,5 @@
 name: CI - comprovations
+
 on:
   push:
     branches: [master]
@@ -20,16 +21,46 @@ jobs:
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.11'
 
-      - name: Crear entorno virtual e instalar Flake8
+      - name: Cache de dependencias pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Crear entorno virtual
+        run: python -m venv .venv
+
+      - name: Instalar dependencias
         run: |
-          python -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
-          python -m pip install flake8
+          python -m pip install -r requirements.txt
+          python -m pip install flake8 pytest pytest-cov
 
-      - name: Analizar código
+      - name: Linting
         run: |
           source .venv/bin/activate
-          python -m flake8 app.py calculadora.py tests/
+          python -m flake8 . --max-line-length=100
+
+      - name: Crear directorio de resultados
+        run: mkdir -p test-results
+
+      - name: Tests con coverage
+        run: |
+          source .venv/bin/activate
+          python -m pytest tests/ -v --tb=short \
+            --cov=. \
+            --cov-report=term-missing \
+            --junitxml=test-results/results.xml
+
+      - name: Publicar resultados de tests
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results/
+          retention-days: 30
