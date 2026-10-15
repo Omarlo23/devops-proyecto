@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Descargar código
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
@@ -50,13 +52,24 @@ jobs:
         if: always()
         run: mkdir -p test-results
 
+      - name: Diagnosticar tests
+        run: |
+          echo "Directorio actual:"
+          pwd
+
+          echo "Archivos del proyecto:"
+          find . -maxdepth 3 -type f \
+            -not -path './.git/*' \
+            -not -path './.venv/*'
+
+          echo "Pruebas detectadas:"
+          .venv/bin/python -m pytest --collect-only -vv tests/
+
       - name: Tests con coverage
         run: |
           .venv/bin/python -m pytest tests/ \
             -v \
             --tb=short \
-            --cov=calculadora \
-            --cov-report=term-missing \
             --junitxml=test-results/results.xml
 
       - name: Publicar resultados de tests
