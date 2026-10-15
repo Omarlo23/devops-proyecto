@@ -49,7 +49,6 @@ jobs:
           .venv/bin/python -m pytest tests/ \
             -v \
             --tb=short \
-            --cov=app \
             --cov=calculadora \
             --cov-report=term-missing \
             --junitxml=test-results/results.xml
