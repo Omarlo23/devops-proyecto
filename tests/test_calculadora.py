@@ -12,4 +12,3 @@ def test_restar():
 
 def test_multiplicar():
     assert multiplicar(4, 3) == 12
-

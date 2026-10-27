@@ -10,7 +10,7 @@ services:
       - APP_ENV=development
       - PYTHONUNBUFFERED=1
     volumes:
-      - .:/app                  # Hot reload en desarrollo
+      - .:/app                  
     command: pytest tests/ -v --tb=short
     depends_on:
       - db
