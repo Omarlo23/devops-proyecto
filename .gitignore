@@ -27,3 +27,19 @@ __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Kubernetes
+.kube/
+kubeconfig
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
