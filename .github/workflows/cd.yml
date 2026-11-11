@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cd-aks-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
 jobs:
   deploy-staging:
     name: Deploy → Staging
@@ -23,11 +27,20 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Instalar kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Instalar Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
       - name: Verificar configuración
         env:
           DB_URL: ${{ secrets.DB_URL }}
         run: |
           echo "Ambiente: ${{ vars.APP_ENV }}"
+
           if [ -n "$DB_URL" ]; then
             echo "DB configurada: SI"
           else
@@ -46,6 +59,9 @@ jobs:
             --name aks-devops \
             --overwrite-existing
 
+          kubectl cluster-info
+          kubectl get nodes
+
       - name: Helm deploy en Staging
         env:
           IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/devops-app
@@ -56,12 +72,24 @@ jobs:
             --create-namespace \
             --set-string image.repository="$IMAGE_REPOSITORY" \
             --set-string image.tag="$IMAGE_TAG" \
-            --wait --timeout 5m
+            --wait \
+            --timeout 5m
 
-      - name: Verificar Pods en Staging
+      - name: Verificar Deployment en Staging
         run: |
-          kubectl get pods -n staging
-          kubectl rollout status deployment -n staging --timeout=120s
+          echo "=== DEPLOYMENT STAGING ==="
+
+          kubectl rollout status deployment/devops-app \
+            -n staging \
+            --timeout=120s
+
+          echo "=== PODS STAGING ==="
+
+          kubectl get pods -n staging -o wide
+
+          echo "=== REPLICAS STAGING ==="
+
+          kubectl get deployment devops-app -n staging
 
   deploy-production:
     name: Deploy → Production
@@ -76,6 +104,14 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Instalar kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Instalar Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
       - name: Login en Azure
         uses: azure/login@v2
         with:
@@ -88,6 +124,9 @@ jobs:
             --name aks-devops \
             --overwrite-existing
 
+          kubectl cluster-info
+          kubectl get nodes
+
       - name: Helm deploy en Production
         env:
           IMAGE_REPOSITORY: ${{ secrets.DOCKERHUB_USERNAME }}/devops-app
@@ -98,9 +137,21 @@ jobs:
             --create-namespace \
             --set-string image.repository="$IMAGE_REPOSITORY" \
             --set-string image.tag="$IMAGE_TAG" \
-            --wait --timeout 5m
+            --wait \
+            --timeout 5m
 
-      - name: Verificar Pods en Production
+      - name: Verificar Deployment en Production
         run: |
-          kubectl get pods -n production
-          kubectl rollout status deployment -n production --timeout=120s
+          echo "=== DEPLOYMENT PRODUCTION ==="
+
+          kubectl rollout status deployment/devops-app \
+            -n production \
+            --timeout=120s
+
+          echo "=== PODS PRODUCTION ==="
+
+          kubectl get pods -n production -o wide
+
+          echo "=== REPLICAS PRODUCTION ==="
+
+          kubectl get deployment devops-app -n production
