@@ -1,4 +1,4 @@
-
+```yaml
 name: Terraform IaC
 
 on:
@@ -28,6 +28,9 @@ jobs:
       ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      # Variable de entrada para Terraform
+      TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
 
     steps:
       - name: Checkout
@@ -61,13 +64,16 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Verificar sesión Azure
+        run: az account show --query "{subscription:id, tenant:tenantId}" -o table
+
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Format Check
         working-directory: terraform
-        run: terraform fmt -check
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         working-directory: terraform
@@ -75,11 +81,10 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform
-        run: terraform plan -no-color -out=tfplan
+        run: terraform plan -input=false -no-color -out=tfplan
 
       - name: Terraform Apply (solo en master)
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         working-directory: terraform
-        run: terraform apply -auto-approve tfplan
-
-
+        run: terraform apply -input=false -auto-approve tfplan
+```
