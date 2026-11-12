@@ -1,12 +1,15 @@
+
 name: Terraform IaC
 
 on:
   push:
     branches: [master]
-    paths: ['terraform/**']
+    paths:
+      - 'terraform/**'
   pull_request:
     branches: [master]
-    paths: ['terraform/**']
+    paths:
+      - 'terraform/**'
 
 permissions:
   contents: read
@@ -31,6 +34,24 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.6.0"
+
+      - name: Validar credenciales Azure
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          if [ -z "$AZURE_CREDENTIALS" ]; then
+            echo "ERROR: AZURE_CREDENTIALS está vacío"
+            exit 1
+          fi
+
+          echo "$AZURE_CREDENTIALS" | jq -e '
+            (.clientId | strings | length > 0) and
+            (.clientSecret | strings | length > 0) and
+            (.subscriptionId | strings | length > 0) and
+            (.tenantId | strings | length > 0)
+          ' > /dev/null
+
+          echo "Credenciales Azure correctamente estructuradas"
 
       - name: Login en Azure
         uses: azure/login@v2
