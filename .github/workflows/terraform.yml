@@ -78,3 +78,5 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         working-directory: terraform
         run: terraform apply -auto-approve tfplan
+
+        
