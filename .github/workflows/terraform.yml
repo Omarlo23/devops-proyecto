@@ -6,10 +6,13 @@ on:
     branches: [master]
     paths:
       - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+
   pull_request:
     branches: [master]
     paths:
       - 'terraform/**'
+      - '.github/workflows/terraform.yml'
 
 permissions:
   contents: read
@@ -79,4 +82,4 @@ jobs:
         working-directory: terraform
         run: terraform apply -auto-approve tfplan
 
-        
+
