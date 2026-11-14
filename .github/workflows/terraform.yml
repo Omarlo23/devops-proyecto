@@ -22,14 +22,6 @@ jobs:
     name: Plan y Apply
     runs-on: ubuntu-latest
 
-    env:
-      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
-      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
-
-      TF_VAR_subscription_id: ${{ secrets.ARM_SUBSCRIPTION_ID }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,14 +31,11 @@ jobs:
         with:
           terraform_version: "1.6.0"
 
-      - name: Validar credenciales Azure
+      - name: Configurar credenciales Azure para Terraform
         env:
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
         run: |
-          if [ -z "$AZURE_CREDENTIALS" ]; then
-            echo "ERROR: AZURE_CREDENTIALS está vacío"
-            exit 1
-          fi
+          set -e
 
           echo "$AZURE_CREDENTIALS" | jq -e '
             (.clientId | strings | length > 0) and
@@ -55,7 +44,12 @@ jobs:
             (.tenantId | strings | length > 0)
           ' > /dev/null
 
-          echo "Credenciales Azure correctamente estructuradas"
+          echo "ARM_CLIENT_ID=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientId')" >> "$GITHUB_ENV"
+          echo "ARM_CLIENT_SECRET=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientSecret')" >> "$GITHUB_ENV"
+          echo "ARM_SUBSCRIPTION_ID=$(echo "$AZURE_CREDENTIALS" | jq -r '.subscriptionId')" >> "$GITHUB_ENV"
+          echo "ARM_TENANT_ID=$(echo "$AZURE_CREDENTIALS" | jq -r '.tenantId')" >> "$GITHUB_ENV"
+
+          echo "Credenciales Azure configuradas para Terraform"
 
       - name: Login en Azure
         uses: azure/login@v2
@@ -85,7 +79,3 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         working-directory: terraform
         run: terraform apply -input=false -auto-approve tfplan
-
-
-
-        
