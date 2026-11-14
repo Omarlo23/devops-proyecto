@@ -1,0 +1,125 @@
+name: Terraform IaC
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+
+  pull_request:
+    branches: [master]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    name: Plan y Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      # Descargar el repositorio
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Instalar Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      # Configurar credenciales para Terraform
+      - name: Configurar credenciales Azure para Terraform
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$AZURE_CREDENTIALS" ]; then
+            echo "::error::AZURE_CREDENTIALS está vacío."
+            exit 1
+          fi
+
+          TENANT_ID=$(jq -er '.tenantId' <<< "$AZURE_CREDENTIALS")
+          CLIENT_ID=$(jq -er '.clientId' <<< "$AZURE_CREDENTIALS")
+          CLIENT_SECRET=$(jq -er '.clientSecret' <<< "$AZURE_CREDENTIALS")
+          SUBSCRIPTION_ID=$(jq -er '.subscriptionId' <<< "$AZURE_CREDENTIALS")
+
+          if [[ ! "$TENANT_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::tenantId no contiene un GUID válido."
+            exit 1
+          fi
+
+          if [[ ! "$CLIENT_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::clientId no contiene un GUID válido."
+            exit 1
+          fi
+
+          if [[ ! "$SUBSCRIPTION_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::subscriptionId no contiene un GUID válido."
+            exit 1
+          fi
+
+          {
+            echo "ARM_TENANT_ID=$TENANT_ID"
+            echo "ARM_CLIENT_ID=$CLIENT_ID"
+            echo "ARM_CLIENT_SECRET=$CLIENT_SECRET"
+            echo "ARM_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
+            echo "TF_VAR_subscription_id=$SUBSCRIPTION_ID"
+          } >> "$GITHUB_ENV"
+
+          echo "Credenciales Azure configuradas correctamente."
+
+      # Autenticarse en Azure
+      - name: Login en Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Verificar sesión
+      - name: Verificar sesión Azure
+        run: |
+          az account show --query "{subscription:id, tenant:tenantId}" -o table
+
+      # Verificar formato del tenant
+      - name: Verificar formato del tenant
+        shell: bash
+        run: |
+          if [[ ! "$ARM_TENANT_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "::error::ARM_TENANT_ID tiene un formato incorrecto."
+            exit 1
+          fi
+
+          echo "ARM_TENANT_ID tiene formato GUID válido."
+
+      # Inicializar Terraform
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      # Comprobar formato
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      # Validar configuración
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      # Generar plan
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      # Aplicar únicamente en master
+      - name: Terraform Apply (solo en master)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        working-directory: terraform
+        run: terraform apply -input=false -auto-approve tfplan

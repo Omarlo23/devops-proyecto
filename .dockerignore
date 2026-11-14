@@ -26,5 +26,3 @@ azure-pipelines.yml
 *.md
 docs/
 
-# Tests (si se quiere imagen de producción sin tests)
-# tests/  <- Comentado: en el curso incluimos tests en la imagen

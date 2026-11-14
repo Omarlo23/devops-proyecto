@@ -30,9 +30,10 @@ __pycache__/
 
 # Terraform
 .terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars.local
+.terraform.lock.hcl
 
 # Kubernetes
 .kube/
