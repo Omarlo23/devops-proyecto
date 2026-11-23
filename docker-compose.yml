@@ -20,7 +20,7 @@ services:
     container_name: devops-db
     environment:
       - POSTGRES_USER=devops
-      - POSTGRES_PASSWORD=devops123
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}      
       - POSTGRES_DB=devopsdb
     ports:
       - "5432:5432"

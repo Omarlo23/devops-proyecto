@@ -44,3 +44,5 @@ kubeconfig
 .env.*
 *.pem
 *.key
+
+script_audit.sh
