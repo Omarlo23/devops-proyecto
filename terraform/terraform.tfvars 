@@ -1,5 +1,4 @@
-
-subscription_id = "802e23af-a3a8-436c-aa7f-62c93c2b08e5"
 environment = "staging"
-location    = "eastus"
+location    = "centralus"
 node_count  = 1
+vm_size     = "standard_b2s_v2"
