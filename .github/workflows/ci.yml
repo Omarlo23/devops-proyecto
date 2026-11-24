@@ -42,7 +42,7 @@ jobs:
       - name: Crear directorio de resultados
         run: mkdir -p test-results
 
-      - name: Tests con coverage
+      - name: Tests
         run: pytest tests/ -v --tb=short --junitxml=test-results/results.xml
 
       - name: Publicar resultados de tests
@@ -58,14 +58,17 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Format
+        working-directory: ./terraform
         run: terraform fmt -check -recursive
 
       - name: Terraform Init (Pull Request)
         if: github.event_name == 'pull_request'
+        working-directory: ./terraform
         run: terraform init -backend=false -input=false
 
       - name: Terraform Init (Push)
         if: github.event_name == 'push'
+        working-directory: ./terraform
         run: terraform init -input=false
         env:
           ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
@@ -74,10 +77,12 @@ jobs:
           ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
 
       - name: Terraform Validate
+        working-directory: ./terraform
         run: terraform validate
 
       - name: Terraform Plan
         if: github.event_name == 'push'
+        working-directory: ./terraform
         run: terraform plan -input=false -no-color
         env:
           ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
@@ -92,6 +97,7 @@ jobs:
 
       # TRIVY
       - name: Escaneo de seguridad con Trivy
+        id: trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: devops-app:${{ github.sha }}
@@ -101,8 +107,8 @@ jobs:
           exit-code: '0'
 
       - name: Subir resultados a GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && github.event_name == 'push'
+        if: always() && github.event_name == 'push' && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
           category: Trivy
