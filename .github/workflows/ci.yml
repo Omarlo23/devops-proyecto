@@ -12,13 +12,16 @@ permissions:
 
 jobs:
   lint-and-test:
-    name: Lint y Tests Unitarios
+    name: Lint, Tests y Seguridad
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # PYTHON
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -36,6 +39,9 @@ jobs:
       - name: Linting
         run: flake8 . --max-line-length=100
 
+      - name: Crear directorio de resultados
+        run: mkdir -p test-results
+
       - name: Tests con coverage
         run: pytest tests/ -v --tb=short --junitxml=test-results/results.xml
 
@@ -47,9 +53,44 @@ jobs:
           path: test-results/
           retention-days: 30
 
+      # TERRAFORM
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init (Pull Request)
+        if: github.event_name == 'pull_request'
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform Init (Push)
+        if: github.event_name == 'push'
+        run: terraform init -input=false
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        if: github.event_name == 'push'
+        run: terraform plan -input=false -no-color
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
+          TF_VAR_subscription_id: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+
+      # DOCKER
       - name: Build imagen Docker
         run: docker build -t devops-app:${{ github.sha }} .
 
+      # TRIVY
       - name: Escaneo de seguridad con Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -61,15 +102,19 @@ jobs:
 
       - name: Subir resultados a GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && github.event_name == 'push'
         with:
           sarif_file: trivy-results.sarif
           category: Trivy
           wait-for-processing: true
 
-      - name: Publicar imagen (solo en push a main)
-        if: github.ref == 'refs/heads/main'
+      # DOCKERHUB
+      - name: Publicar imagen Docker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          docker tag devops-app:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-app:${{ github.sha }}
+          docker tag devops-app:${{ github.sha }} $DOCKERHUB_USERNAME/devops-app:${{ github.sha }}
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+          docker push $DOCKERHUB_USERNAME/devops-app:${{ github.sha }}
